@@ -1,0 +1,59 @@
+# Binaries
+gobbs
+bbs
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Build directory
+build/
+
+# Database files
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+
+# SSH host keys
+host_key
+host_key.pub
+*.pem
+
+# Config files (except examples)
+config.json
+
+# Test binary
+*.test
+
+# Output of go coverage tool
+*.out
+
+# Dependency directories
+vendor/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Backup files
+backups/
+*.backup
+*.bak
+
+# Log files
+*.log
+
+# Temporary files
+tmp/
+temp/
+
+# systemd service file (generated)
+gobbs.service

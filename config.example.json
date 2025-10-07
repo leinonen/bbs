@@ -1,0 +1,8 @@
+{
+  "listen_addr": ":2222",
+  "database_path": "bbs.db",
+  "server_name": "Go BBS System",
+  "host_key_path": "host_key",
+  "allow_anonymous": true,
+  "max_users": 100
+}
