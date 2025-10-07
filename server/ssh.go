@@ -4,32 +4,32 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
-	"database/sql"
 	"encoding/pem"
 	"fmt"
 	"log"
 	"net"
 	"os"
 
-	"github.com/leinonen/bbs/bbs"
 	"github.com/leinonen/bbs/config"
+	"github.com/leinonen/bbs/domain"
+	"github.com/leinonen/bbs/repository"
 	"github.com/leinonen/bbs/ui"
 	"golang.org/x/crypto/ssh"
-	"golang.org/x/crypto/ssh/terminal"
+	"golang.org/x/term"
 )
 
 type SSHServer struct {
 	config   *config.Config
-	db       *sql.DB
+	repos    *repository.Manager
 	listener net.Listener
-	sessions *bbs.SessionManager
+	sessions *domain.SessionManager
 }
 
-func NewSSHServer(cfg *config.Config, db *sql.DB) *SSHServer {
+func NewSSHServer(cfg *config.Config, repos *repository.Manager) *SSHServer {
 	return &SSHServer{
 		config:   cfg,
-		db:       db,
-		sessions: bbs.NewSessionManager(),
+		repos:    repos,
+		sessions: domain.NewSessionManager(),
 	}
 }
 
@@ -37,10 +37,15 @@ func (s *SSHServer) Start() error {
 	sshConfig := &ssh.ServerConfig{
 		NoClientAuth: s.config.AllowAnonymous,
 		PasswordCallback: func(conn ssh.ConnMetadata, password []byte) (*ssh.Permissions, error) {
-			user, err := bbs.AuthenticateUser(s.db, conn.User(), string(password))
+			user, err := s.repos.User.Authenticate(conn.User(), string(password))
 			if err != nil {
 				return nil, fmt.Errorf("invalid credentials")
 			}
+
+			if err := s.repos.User.UpdateLastLogin(user.ID); err != nil {
+				log.Printf("Failed to update last login: %v", err)
+			}
+
 			return &ssh.Permissions{
 				Extensions: map[string]string{
 					"user-id": fmt.Sprintf("%d", user.ID),
@@ -115,17 +120,19 @@ func (s *SSHServer) handleConnection(netConn net.Conn, config *ssh.ServerConfig)
 func (s *SSHServer) handleSession(channel ssh.Channel, requests <-chan *ssh.Request, sshConn *ssh.ServerConn) {
 	defer channel.Close()
 
-	term := terminal.NewTerminal(channel, "")
+	term := term.NewTerminal(channel, "")
 
-	var user *bbs.User
+	var user *domain.User
 	if s.config.AllowAnonymous && sshConn.Permissions == nil {
-		user = &bbs.User{
+		user = &domain.User{
 			Username: "anonymous",
 			ID:       0,
 		}
 	} else if sshConn.Permissions != nil {
-		userID := sshConn.Permissions.Extensions["user-id"]
-		user, _ = bbs.GetUserByID(s.db, userID)
+		userIDStr := sshConn.Permissions.Extensions["user-id"]
+		var userID int
+		fmt.Sscanf(userIDStr, "%d", &userID)
+		user, _ = s.repos.User.GetByID(userID)
 	}
 
 	session := s.sessions.CreateSession(user, term)
@@ -151,7 +158,7 @@ func (s *SSHServer) handleSession(channel ssh.Channel, requests <-chan *ssh.Requ
 		}
 	}()
 
-	ui := ui.NewUI(term, s.db, session)
+	ui := ui.NewUI(term, s.repos, session)
 	ui.Run()
 }
 

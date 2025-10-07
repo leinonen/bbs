@@ -10,6 +10,7 @@ import (
 
 	"github.com/leinonen/bbs/config"
 	"github.com/leinonen/bbs/database"
+	"github.com/leinonen/bbs/repository"
 	"github.com/leinonen/bbs/server"
 )
 
@@ -30,7 +31,9 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to initialize database: %v", err)
 	}
-	defer db.Close()
+
+	repos := repository.NewManager(db)
+	defer repos.Close()
 
 	if *initDB {
 		if err := database.Migrate(db); err != nil {
@@ -40,7 +43,7 @@ func main() {
 		return
 	}
 
-	sshServer := server.NewSSHServer(cfg, db)
+	sshServer := server.NewSSHServer(cfg, repos)
 
 	go func() {
 		log.Printf("Starting BBS SSH server on %s", cfg.ListenAddr)

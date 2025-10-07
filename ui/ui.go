@@ -1,26 +1,26 @@
 package ui
 
 import (
-	"database/sql"
 	"fmt"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/leinonen/bbs/bbs"
-	"golang.org/x/crypto/ssh/terminal"
+	"github.com/leinonen/bbs/domain"
+	"github.com/leinonen/bbs/repository"
+	"golang.org/x/term"
 )
 
 type UI struct {
-	term    *terminal.Terminal
-	db      *sql.DB
-	session *bbs.Session
+	term    *term.Terminal
+	repos   *repository.Manager
+	session *domain.Session
 }
 
-func NewUI(term *terminal.Terminal, db *sql.DB, session *bbs.Session) *UI {
+func NewUI(term *term.Terminal, repos *repository.Manager, session *domain.Session) *UI {
 	return &UI{
 		term:    term,
-		db:      db,
+		repos:   repos,
 		session: session,
 	}
 }
@@ -68,7 +68,7 @@ func (ui *UI) showLoginMenu() bool {
 	case "2":
 		ui.handleRegister()
 	case "3":
-		ui.session.User = &bbs.User{
+		ui.session.User = &domain.User{
 			ID:       0,
 			Username: "guest",
 		}
@@ -138,13 +138,14 @@ func (ui *UI) handleLogin() {
 	password, _ := ui.term.ReadPassword("Password: ")
 	ui.term.SetPrompt("")
 
-	user, err := bbs.AuthenticateUser(ui.db, username, password)
+	user, err := ui.repos.User.Authenticate(username, password)
 	if err != nil {
 		ui.printError("Invalid credentials")
 		time.Sleep(2 * time.Second)
 		return
 	}
 
+	ui.repos.User.UpdateLastLogin(user.ID)
 	ui.session.User = user
 	ui.printSuccess(fmt.Sprintf("Welcome back, %s!", user.Username))
 	time.Sleep(1 * time.Second)
@@ -169,7 +170,10 @@ func (ui *UI) handleRegister() {
 		return
 	}
 
-	user, err := bbs.CreateUser(ui.db, username, password, email)
+	user := domain.NewUser(username, email)
+	user.Password = password
+
+	err := ui.repos.User.Create(user)
 	if err != nil {
 		ui.printError(fmt.Sprintf("Registration failed: %v", err))
 		time.Sleep(2 * time.Second)
@@ -186,7 +190,7 @@ func (ui *UI) browseBoards() {
 		ui.clear()
 		ui.printHeader("Message Boards")
 
-		boards, err := bbs.GetAllBoards(ui.db)
+		boards, err := ui.repos.Board.GetAll()
 		if err != nil {
 			ui.printError(fmt.Sprintf("Error loading boards: %v", err))
 			return
@@ -215,7 +219,7 @@ func (ui *UI) browseBoards() {
 	}
 }
 
-func (ui *UI) viewBoard(board *bbs.Board) {
+func (ui *UI) viewBoard(board *domain.Board) {
 	page := 0
 	pageSize := 20
 
@@ -225,7 +229,7 @@ func (ui *UI) viewBoard(board *bbs.Board) {
 		ui.println(board.Description)
 		ui.printLine()
 
-		posts, err := bbs.GetPostsByBoard(ui.db, board.ID, pageSize, page*pageSize)
+		posts, err := ui.repos.Post.GetByBoard(board.ID, pageSize, page*pageSize)
 		if err != nil {
 			ui.printError(fmt.Sprintf("Error loading posts: %v", err))
 			return
@@ -285,7 +289,7 @@ func (ui *UI) viewBoard(board *bbs.Board) {
 	}
 }
 
-func (ui *UI) viewPost(post *bbs.Post) {
+func (ui *UI) viewPost(post *domain.Post) {
 	ui.clear()
 	ui.printHeader(post.Title)
 	ui.println(fmt.Sprintf("Posted by %s on %s", post.Username, ui.formatTime(post.CreatedAt)))
@@ -293,7 +297,7 @@ func (ui *UI) viewPost(post *bbs.Post) {
 	ui.println(post.Content)
 	ui.printLine()
 
-	replies, _ := bbs.GetReplies(ui.db, post.ID)
+	replies, _ := ui.repos.Post.GetReplies(post.ID)
 	if len(replies) > 0 {
 		ui.println(fmt.Sprintf("--- %d Replies ---", len(replies)))
 		for _, reply := range replies {
@@ -355,7 +359,14 @@ func (ui *UI) createPost(boardID int, replyTo *int) {
 		return
 	}
 
-	_, err := bbs.CreatePost(ui.db, boardID, ui.session.User.ID, title, content, replyTo)
+	var post *domain.Post
+	if replyTo != nil {
+		post = domain.NewReply(boardID, ui.session.User.ID, ui.session.User.Username, content, *replyTo)
+	} else {
+		post = domain.NewPost(boardID, ui.session.User.ID, ui.session.User.Username, title, content)
+	}
+
+	err := ui.repos.Post.Create(post)
 	if err != nil {
 		ui.printError(fmt.Sprintf("Failed to create post: %v", err))
 	} else {
@@ -368,7 +379,7 @@ func (ui *UI) showRecentPosts() {
 	ui.clear()
 	ui.printHeader("Recent Posts")
 
-	posts, err := bbs.GetRecentPosts(ui.db, 20)
+	posts, err := ui.repos.Post.GetRecent(20)
 	if err != nil {
 		ui.printError(fmt.Sprintf("Error loading posts: %v", err))
 		return
@@ -440,7 +451,8 @@ func (ui *UI) createBoard() {
 	name := ui.readLine("Board name: ")
 	description := ui.readLine("Description: ")
 
-	_, err := bbs.CreateBoard(ui.db, name, description)
+	board := domain.NewBoard(name, description)
+	err := ui.repos.Board.Create(board)
 	if err != nil {
 		ui.printError(fmt.Sprintf("Failed to create board: %v", err))
 	} else {

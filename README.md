@@ -166,12 +166,26 @@ bbs/
 ├── main.go           # Entry point
 ├── config/          # Configuration handling
 ├── server/          # SSH server implementation
-├── bbs/            # Core BBS logic (boards, posts, users)
+├── domain/          # Clean domain models (User, Board, Post)
+├── repository/      # Repository pattern implementation
+│   ├── interfaces.go    # Repository interfaces
+│   ├── manager.go       # Repository manager
+│   └── sqlite/          # SQLite implementations
 ├── ui/             # Terminal UI
 ├── database/       # Database layer
 ├── Makefile         # Build automation
 └── Dockerfile       # Container support
 ```
+
+### Architecture
+
+The BBS follows clean architecture principles with the Repository pattern:
+
+- **Domain Layer**: Pure business entities without external dependencies
+- **Repository Layer**: Data access abstraction with interfaces
+- **Infrastructure Layer**: SQLite implementations of repositories
+- **UI Layer**: Terminal interface for user interaction
+- **Server Layer**: SSH server handling connections
 
 ### Adding Features
 
