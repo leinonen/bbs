@@ -147,14 +147,27 @@ The BBS can be configured using a JSON file. See `config.example.json` for avail
 
 The project includes a comprehensive Makefile with the following commands:
 
+**Build & Run:**
 - `make build` - Build the BBS binary
 - `make run` - Build and run the server
 - `make init` - Initialize the database
 - `make setup` - Complete setup (deps, build, init)
-- `make clean` - Remove build artifacts
-- `make test` - Run tests
+
+**Testing:**
+- `make test` - Run all tests
+- `make test-unit` - Run unit tests only
+- `make test-integration` - Run integration tests only
+- `make test-coverage` - Run tests with coverage report
+- `make test-race` - Run tests with race detection
+
+**Code Quality:**
 - `make fmt` - Format code
+- `make vet` - Run Go vet
 - `make check` - Run fmt, vet, and tests
+- `make check-all` - Run all checks including coverage and race detection
+
+**Utilities:**
+- `make clean` - Remove build artifacts
 - `make help` - Show all available commands
 
 ## Development
@@ -187,13 +200,46 @@ The BBS follows clean architecture principles with the Repository pattern:
 - **UI Layer**: Terminal interface for user interaction
 - **Server Layer**: SSH server handling connections
 
+### Testing
+
+The project includes comprehensive tests:
+
+**Unit Tests:**
+- Domain models with 100% coverage (`domain/*_test.go`)
+- Repository interfaces with mock implementations (`repository/*_test.go`)
+- Session management and concurrent access
+
+**Integration Tests:**
+- Full SQLite repository implementations (`test/integration_test.go`)
+- Database operations with real SQLite instances
+- End-to-end data flow testing
+
+**Test Structure:**
+```
+test/
+├── mocks/              # Mock implementations for testing
+├── testdata/           # Test fixtures and SQL schemas
+└── integration_test.go # Integration tests
+```
+
+**Running Tests:**
+```bash
+make test              # All tests
+make test-unit         # Unit tests only
+make test-integration  # Integration tests only
+make test-coverage     # Generate coverage report
+make test-race         # Race condition detection
+```
+
 ### Adding Features
 
 The codebase is modular and easy to extend:
 
 1. Add new UI screens in `ui/`
-2. Add new data models in `bbs/`
-3. Extend the database schema in `database/db.go`
+2. Add new domain models in `domain/`
+3. Extend repository interfaces in `repository/`
+4. Implement SQLite repositories in `repository/sqlite/`
+5. Add corresponding tests for all new functionality
 
 ## Troubleshooting
 

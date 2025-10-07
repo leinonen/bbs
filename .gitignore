@@ -28,6 +28,10 @@ config.json
 
 # Output of go coverage tool
 *.out
+coverage.html
+
+# Test databases
+test_bbs_*.db
 
 # Dependency directories
 vendor/

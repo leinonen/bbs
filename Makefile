@@ -45,6 +45,8 @@ clean:
 	@rm -f $(BINARY_NAME)
 	@rm -f host_key
 	@rm -f bbs.db
+	@rm -f coverage.out coverage.html
+	@rm -f test_bbs_*.db
 	@echo "$(GREEN)Clean complete$(NC)"
 
 ## run: Build and run the BBS server
@@ -64,10 +66,37 @@ dev:
 	@echo "$(YELLOW)Watching for file changes...$(NC)"
 	find . -name "*.go" | entr -r make run
 
-## test: Run tests
+## test: Run all tests
 test:
-	@echo "$(GREEN)Running tests...$(NC)"
+	@echo "$(GREEN)Running all tests...$(NC)"
 	$(GO) test -v ./...
+
+## test-unit: Run unit tests only
+test-unit:
+	@echo "$(GREEN)Running unit tests...$(NC)"
+	$(GO) test -v ./domain ./repository
+
+## test-integration: Run integration tests only
+test-integration:
+	@echo "$(GREEN)Running integration tests...$(NC)"
+	$(GO) test -v ./test
+
+## test-coverage: Run tests with coverage
+test-coverage:
+	@echo "$(GREEN)Running tests with coverage...$(NC)"
+	$(GO) test -v -coverprofile=coverage.out ./...
+	$(GO) tool cover -html=coverage.out -o coverage.html
+	@echo "$(GREEN)Coverage report generated: coverage.html$(NC)"
+
+## test-bench: Run benchmark tests
+test-bench:
+	@echo "$(GREEN)Running benchmark tests...$(NC)"
+	$(GO) test -v -bench=. ./...
+
+## test-race: Run tests with race detection
+test-race:
+	@echo "$(GREEN)Running tests with race detection...$(NC)"
+	$(GO) test -v -race ./...
 
 ## deps: Download dependencies
 deps:
@@ -125,6 +154,10 @@ lint:
 ## check: Run fmt, vet, and test
 check: fmt vet test
 	@echo "$(GREEN)All checks passed!$(NC)"
+
+## check-all: Run all checks including race detection and coverage
+check-all: fmt vet test-coverage test-race
+	@echo "$(GREEN)All comprehensive checks passed!$(NC)"
 
 ## version: Show version information
 version:
